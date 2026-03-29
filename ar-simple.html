@@ -1,538 +1,690 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Yangın Eğitimi - Basit Mod</title>
-
-    <!-- A-Frame AR.js -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 9999;
-        }
-
-        #loading-screen h1 {
-            font-size: 24px;
-            margin-bottom: 30px;
-            text-align: center;
-            padding: 0 20px;
-        }
-
-        .start-btn {
-            background: linear-gradient(145deg, #ff6b6b, #ee5a6f);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 20px 50px;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
-            margin-top: 20px;
-        }
-
-        .instructions-box {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 2px solid #ff6b6b;
-            border-radius: 15px;
-            padding: 20px;
-            max-width: 400px;
-            margin: 20px;
-            text-align: left;
-        }
-
-        .instructions-box h3 {
-            color: #ffaa00;
-            margin-bottom: 10px;
-        }
-
-        .instructions-box p {
-            font-size: 14px;
-            line-height: 1.6;
-            margin: 8px 0;
-        }
-
-        /* AR UI Overlay */
-        .ar-ui {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 100;
-            display: none;
-        }
-
-        .ar-ui.active {
-            display: block;
-        }
-
-        .top-bar {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .info-box {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 12px 20px;
-            border-radius: 10px;
-            border: 2px solid #ff6b6b;
-            font-size: 14px;
-            color: white;
-        }
-
-        .timer-box {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 12px 20px;
-            border-radius: 10px;
-            border: 2px solid #00ff00;
-            font-size: 16px;
-            font-weight: bold;
-            color: #00ff00;
-        }
-
-        .bottom-controls {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-            pointer-events: auto;
-        }
-
-        .control-btn {
-            background: linear-gradient(145deg, #4CAF50, #45a049);
-            color: white;
-            border: 3px solid white;
-            border-radius: 12px;
-            padding: 15px 25px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .control-btn:active {
-            transform: scale(0.95);
-        }
-
-        .control-btn.alarm {
-            background: linear-gradient(145deg, #ff0000, #cc0000);
-        }
-
-        .control-btn.abc {
-            background: linear-gradient(145deg, #ff4444, #cc0000);
-        }
-
-        .control-btn.co2 {
-            background: linear-gradient(145deg, #333, #111);
-        }
-
-        .control-btn.water {
-            background: linear-gradient(145deg, #2196F3, #1976D2);
-        }
-
-        .status-message {
-            position: absolute;
-            bottom: 140px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 15px 30px;
-            border-radius: 12px;
-            border: 2px solid #ffaa00;
-            font-size: 16px;
-            font-weight: bold;
-            color: white;
-            text-align: center;
-            max-width: 90%;
-        }
-
-        .popup-message {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.95);
-            padding: 30px 40px;
-            border-radius: 15px;
-            border: 3px solid #ffaa00;
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-            max-width: 80%;
-            z-index: 200;
-            display: none;
-            color: white;
-        }
-
-        /* Tapılacak alan göstergesi */
-        .tap-indicator {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 20px 30px;
-            border-radius: 15px;
-            border: 2px dashed #ffaa00;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 0.8;
-            }
-
-            50% {
-                opacity: 1;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Deprem Simülasyonu </title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <style>
+    body { margin:0; overflow:hidden; font-family:'Segoe UI', sans-serif; }
+    #loading-screen {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:#121212; display:flex; flex-direction:column;
+      justify-content:center; align-items:center; color:white; z-index:9999;
+    }
+    .start-btn {
+      background:#ff4757; color:white; border:none; border-radius:30px;
+      padding:18px 45px; font-size:20px; font-weight:bold; cursor:pointer;
+    }
+    #interact-menu {
+      position: fixed; display: none; background: rgba(0,0,0,0.95);
+      border: 2px solid #f1c40f; border-radius: 10px; padding: 5px;
+      z-index: 1000; pointer-events: auto; min-width: 160px;
+    }
+    .menu-btn {
+      display: block; width: 100%; background: none; color: white;
+      border: none; padding: 12px; text-align: left; cursor: pointer;
+      font-weight: bold; border-bottom: 1px solid #333;
+    }
+    .menu-btn:hover { background: #f1c40f; color: black; }
+    #stand-up-container {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      display: none; z-index: 1000; pointer-events: auto;
+    }
+    .stand-btn { background: #2ecc71; color: white; border: 3px solid #fff; padding: 15px 40px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 50px; }
+    .game-ui { position:fixed; width:100%; height:100%; top:0; left:0; pointer-events:none; z-index:100; display:none; }
+    .game-ui.active { display: block; }
+    .top-bar { position:absolute; top:20px; left:20px; right:20px; display:flex; justify-content:space-between; }
+    .score-box { background:rgba(0,0,0,0.8); padding:12px 25px; border-radius:10px; color:#f1c40f; font-size:22px; border:1px solid #f1c40f; }
+    .bottom-controls { position:absolute; bottom:30px; left:50%; transform:translateX(-50%); display:flex; gap:15px; pointer-events:auto; }
+    .control-btn { border-radius:8px; padding:15px 30px; font-size:16px; font-weight:bold; cursor:pointer; color:white; border:none; }
+    
+    #danger-popup {
+        position:fixed; top:40%; left:50%; transform:translate(-50%, -50%);
+        background:rgba(255,0,0,0.9); color:white; padding:20px 40px; border-radius:10px;
+        border:5px solid white; display:none; z-index:5000; text-align:center;
+        font-weight:bold; font-size:24px; animation: blink 0.5s infinite;
+    }
+    @keyframes blink { 0% {opacity:1;} 50% {opacity:0.5;} 100% {opacity:1;} }
+    .popup-message {
+      position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+      background:rgba(0,0,0,0.95); color:white; padding:35px; border-radius:15px;
+      border:2px solid #f1c40f; display:none; z-index:200; text-align:center; white-space: pre-line;
+    }
+  </style>
 </head>
+<body oncontextmenu="return false;">
 
-<body>
-    <!-- Yükleme/Başlangıç Ekranı -->
-    <div id="loading-screen">
-        <h1>🔥 3D Yangın Söndürme Eğitimi</h1>
+  <div id="loading-screen">
+    <h1>🏠 Gerçekçi Deprem Simülasyonu</h1>
+    <p>SİMÜLASYONA BASLAYABİLİRSİN</p>
+    <button class="start-btn" onclick="startGame()">SİSTEMİ BAŞLAT</button>
+  </div>
 
-        <div class="instructions-box">
-            <h3>📱 Nasıl Kullanılır?</h3>
-            <p><strong>1.</strong> Kamera iznini verin</p>
-            <p><strong>2.</strong> Telefonunuzu zemine/masaya tutun</p>
-            <p><strong>3.</strong> Ekrana dokunarak yangını yerleştirin</p>
-            <p><strong>4.</strong> Alarm basın ve doğru söndürücüyü seçin</p>
-            <p><strong>5.</strong> 20 saniye içinde müdahale edin!</p>
+  <div id="interact-menu">
+      <button class="menu-btn" onclick="doAction('crouch')">🧎 Çök - Kapan - Tutun</button>
+      <button class="menu-btn" style="color:#ff4757; border:none;" onclick="closeMenu()">❌ İptal</button>
+  </div>
 
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
-                <p style="color: #ffaa00;"><strong>Yang</strong> Söndürücüler:</p>
-                <p style="font-size: 13px;">✓ <strong style="color: #ff0000;">ABC Toz</strong> - Doğru</p>
-                <p style="font-size: 13px;">✓ <strong style="color: #888;">CO2</strong> - Doğru</p>
-                <p style="font-size: 13px;">✗ <strong style="color: #4af;">SU</strong> - Yanlış (Tehlikeli!)</p>
-            </div>
-        </div>
+  <div id="stand-up-container">
+      <button class="stand-btn" onclick="standUp()">🚶 AYAĞA KALK</button>
+  </div>
 
-        <button class="start-btn" onclick="startAR()">📷 Kamerayı Aç</button>
+  <div id="danger-popup">🚨 DİKKAT 🚨<br><span id="danger-text">TEHLİKE!</span></div>
+
+  <a-scene id="main-scene" shadow="type:pcfsoft" renderer="antialias:true; colorManagement:true;" 
+           style="display:none;" cursor="rayOrigin: mouse;" raycaster="objects: .clickable">
+    
+    <a-assets>
+      <img id="light-floor" src="https://raw.githubusercontent.com/aframevr/sample-assets/master/assets/images/wood/hardwood2_diffuse.jpg">
+      <img id="light-floor" src="https://raw.githubusercontent.com/aframevr/sample-assets/master/assets/images/wood/hardwood2_diffuse.jpg">
+      
+      <img id="door-wood" src="https://cdn.glitch.global/605e2a51-e42f-4e8a-b85a-043e03a670f5/door_wood.jpg?v=1680516631120" crossorigin="anonymous">
+      
+      <img id="tablo-img" src="https://cdn.glitch.global/605e2a51-e42f-4e8a-b85a-043e03a670f5/mountain_lake.jpg?v=1680516635678" crossorigin="anonymous">
+      
+      <audio id="quake-sound" src="https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73954.mp3" crossorigin="anonymous"></audio>
+      <audio id="glass-sound" src="https://actions.google.com/sounds/v1/foley/glass_break.ogg" crossorigin="anonymous"></audio>
+    </a-assets>
+
+    <a-entity id="audio-quake" sound="src: #quake-sound; loop: true; volume: 2"></a-entity>
+    <a-entity id="audio-glass" sound="src: #glass-sound; volume: 3"></a-entity>
+
+    <a-sky color="#74b9ff"></a-sky>
+    <a-light type="ambient" intensity="0.5"></a-light>
+    <a-light type="directional" intensity="0.8" position="5 10 5" castShadow="true"></a-light>
+
+    <a-entity id="rig" position="0 0 2">
+      <a-entity id="player-camera" camera look-controls wasd-controls="acceleration:75" position="0 1.6 0"></a-entity>
+    </a-entity>
+
+    <a-entity id="shaky-container">
+        <a-entity id="dining-set-pro" position="0 0 -2.5" 
+                animation="property: rotation; from: 0 0 0; to: 1 1 1; dur: 100; dir: alternate; loop: true; startEvents: start-shake; pauseEvents: stop-shake">
+          <a-box class="clickable" width="2.5" height="0.08" depth="1.5" position="0 0.75 0" color="#f5f5dc">
+              <a-box width="0.6" height="0.01" depth="1.51" position="0 0.05 0" color="#747d8c"></a-box> 
+          </a-box>
+          <a-cylinder radius="0.03" height="0.75" position="-1.1 0.37 0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="1.1 0.37 0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="-1.1 0.37 -0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="1.1 0.37 -0.6" color="#3d3d3d"></a-cylinder>
+          </a-entity>
+
+      <a-entity id="sofa-l" position="0 0.1 -9"
+                animation="property: position; from: 0 0.1 -9; to: 0.05 0.1 -9.05; dur: 120; dir: alternate; loop: true; startEvents: start-shake; pauseEvents: stop-shake">
+          <a-box class="clickable" width="5" height="0.45" depth="1.6" color="#f5f5dc" roughness="1"></a-box>
+      </a-entity>
+
+      <a-entity id="fridge-fancy" position="0.5 0.75 4.5" rotation="0 270 0"
+                animation="property: rotation; from: 0 270 0; to: 1 271 0.5; dur: 90; dir: alternate; loop: true; startEvents: start-shake; pauseEvents: stop-shake">
+          <a-box class="clickable" width="1.2" height="2.4" depth="1.1" color="#c0392b"></a-box>
+      </a-entity>
+      
+
+      <a-entity id="magazine-rack" position="-2.8 0 -15.2" rotation="0 25 0"
+                animation="property: rotation; from: 0 25 0; to: 2 27 1; dur: 110; dir: alternate; loop: true; startEvents: start-shake; pauseEvents: stop-shake">
+          <a-cylinder radius="0.015" height="1" color="#2f3542"></a-cylinder>
+      </a-entity>
+        <a-entity id="kitchen-rug" position="3.5 0.01 -1.5">
+          <a-box width="4" height="0.02" depth="3" color="#1a2a6c" roughness="1" shadow="receive: true">
+              <a-plane width="3.9" height="2.9" position="0 0.01 0" color="#0d1b42" rotation="-90 0 0" opacity="0.3"></a-plane>
+          </a-box>
+          <a-box width="4.1" height="0.01" depth="0.05" position="0 0 1.5" color="#dfe6e9"></a-box>
+          <a-box width="4.1" height="0.01" depth="0.05" position="0 0 -1.5" color="#dfe6e9"></a-box>
+      </a-entity>
+      <a-entity id="coffee-table-rug" position="0 0.01 -12">
+          <a-box width="2.2" height="0.02" depth="1.6" color="#1a2a6c" roughness="1" shadow="receive: true">
+              <a-plane width="2.1" height="1.5" position="0 0.01 0" color="#0d1b42" rotation="-90 0 0" opacity="0.3"></a-plane>
+          </a-box>
+          <a-box width="2.3" height="0.01" depth="0.05" position="0 0 0.8" color="#dfe6e9"></a-box>
+          <a-box width="2.3" height="0.01" depth="0.05" position="0 0 -0.8" color="#dfe6e9"></a-box>
+      </a-entity>
+        <a-box id="ceiling" 
+             position="0 5 -7" 
+             width="16.2" height="0.1" depth="22.2" 
+             color="#ffffff" 
+             material="roughness: 1; metalness: 0; shader: standard"
+             shadow="receive: true">
+      </a-box>
+
+      <a-entity id="ceiling-details">
+          <a-circle radius="0.2" position="0 4.94 -6" rotation="90 0 0" color="#f1f2f6"></a-circle>
+          
+          <a-entity position="6.8 4.94 -4">
+              <a-circle radius="0.18" rotation="90 0 0" color="#ffffff" material="emissive: #ffffff; emissiveIntensity: 0.5"></a-circle>
+              <a-ring radius-inner="0.18" radius-outer="0.2" rotation="90 0 0" color="#dfe6e9"></a-ring>
+          </a-entity>
+      </a-entity>
+      <a-plane class="clickable" src="#light-floor" repeat="15 20" color="#f5e6d3" rotation="-90 0 0" width="30" height="40" roughness="0.9"></a-plane>
+      <a-box position="0 5 -7" width="16" height="0.2" depth="22" color="#f5f5f5" opacity="0.3"></a-box> 
+
+      <a-box position="0 2.5 4" width="16" height="5" depth="0.2" color="#f5f5f5" class="clickable"></a-box> <a-box position="0 2.5 -18" width="16" height="5" depth="0.2" color="#f5f5f5" class="clickable">
+        
+      </a-box> <a-box position="-8 2.5 -7" width="0.2" height="5" depth="22.2" color="#f5f5f5" class="clickable"></a-box> <a-box position="8 2.5 -7" width="0.2" height="5" depth="22.2" color="#f5f5f5" class="clickable"></a-box> 
+          
+      </a-entity>
+
+      <a-entity id="standardized-windows-v4">
+          
+          <a-entity id="window-kitchen-centered" position="7.9 2.8 -1.7">
+              <a-box width="0.1" height="2.5" depth="4" color="#74b9ff" opacity="0.3" material="metalness:0.9; roughness:0.1"></a-box>
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 0" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 -2" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 2" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="0.1" depth="4.1" position="0 1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.1" depth="4.1" position="0 -1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.05" depth="4.1" position="0 0 0" color="#f5f5f5"></a-box>
+              <a-cylinder radius="0.02" height="4.2" rotation="90 0 0" position="-0.1 1.35 0" color="#2f3542"></a-cylinder>
+              <a-entity position="-0.15 0 -1.6"><a-box width="0.05" height="2.8" depth="0.8" color="#c0392b"></a-box></a-entity>
+              <a-entity position="-0.15 0 1.6"><a-box width="0.05" height="2.8" depth="0.8" color="#c0392b"></a-box></a-entity>
+          </a-entity>
+
+          <a-entity id="window-kitchen-aligned" position="7.9 2.8 -10">
+              <a-box width="0.1" height="2.5" depth="5" color="#74b9ff" opacity="0.3" material="metalness:0.9; roughness:0.1"></a-box>
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 0" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 -2.5" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 2.5" color="#f5f5f5"></a-box> 
+              <a-box width="0.12" height="0.1" depth="5.1" position="0 1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.1" depth="5.1" position="0 -1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.05" depth="5.1" position="0 0 0" color="#f5f5f5"></a-box>
+              <a-cylinder radius="0.02" height="5.2" rotation="90 0 0" position="-0.1 1.35 0" color="#2f3542"></a-cylinder>
+              <a-entity position="-0.15 0 -2.1"><a-box width="0.05" height="2.8" depth="0.9" color="#c0392b"></a-box></a-entity>
+              <a-entity position="-0.15 0 2.1"><a-box width="0.05" height="2.8" depth="0.9" color="#c0392b"></a-box></a-entity>
+          </a-entity>
+
+          <a-entity id="window-living-main" position="-7.9 2.8 -10" rotation="0 180 0">
+              <a-box width="0.1" height="2.5" depth="5" color="#74b9ff" opacity="0.3" material="metalness:0.9; roughness:0.1"></a-box>
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 -2.5" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="2.6" depth="0.1" position="0 0 2.5" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.1" depth="5.1" position="0 1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.1" depth="5.1" position="0 -1.25 0" color="#f5f5f5"></a-box>
+              <a-box width="0.12" height="0.05" depth="5.1" position="0 0 0" color="#f5f5f5"></a-box>
+              <a-cylinder radius="0.02" height="5.2" rotation="90 0 0" position="-0.1 1.35 0" color="#2f3542"></a-cylinder>
+              <a-entity position="-0.15 0 -2.1"><a-box width="0.05" height="2.8" depth="0.9" color="#c0392b"></a-box></a-entity>
+              <a-entity position="-0.15 0 2.1"><a-box width="0.05" height="2.8" depth="0.9" color="#c0392b"></a-box></a-entity>
+          </a-entity>
+      </a-entity>
+
+      <a-entity id="exit-door-group" position="0 1.5 3.96" rotation="0 180 0">
+          
+          <a-box id="exit-door" class="clickable" 
+                 width="2.5" height="3" depth="0.1" 
+                 material="src: #door-wood; color: #c0392b; roughness: 0.5; metalness: 0.3"
+                 shadow="cast: true; receive: true">
+          </a-box>
+
+          <a-box width="2.7" height="3.1" depth="0.05" position="0 0 0.06" color="#2f3542"></a-box>
+
+          <a-entity id="door-handle" position="1 0 0.06">
+              <a-box width="0.1" height="0.3" depth="0.01" color="#dfe6e9" material="metalness: 1; roughness: 0.1"></a-box>
+              <a-sphere radius="0.06" position="0 0 0.05" color="#dfe6e9" material="metalness: 1; roughness: 0.1"></a-sphere>
+          </a-entity>
+
+          <a-entity position="0 1.6 0.2">
+              <a-cylinder radius="0.05" height="0.1" rotation="90 0 0" color="#ffffff"></a-cylinder> 
+              <a-point-light intensity="0.8" distance="4" color="#ffffff" castShadow="true"></a-point-light> 
+          </a-entity>
+      </a-entity>
+
+      <a-entity id="vestiyer-group" position="3.5 1.5 3.6" rotation="0 180 0">
+          
+          <a-box width="3.6" height="3" depth="0.5" color="#f1f2f6"></a-box>
+
+          <a-entity position="0 -1 0.1">
+              <a-box width="3.6" height="1" depth="0.6" color="#dfe4ea">
+                  <a-box width="0.02" height="0.8" depth="0.02" position="-0.9 0 0.31" color="#2f3542"></a-box>
+                  <a-box width="0.02" height="0.8" depth="0.02" position="0.9 0 0.31" color="#2f3542"></a-box>
+              </a-box>
+          </a-entity>
+
+          <a-entity position="-0.5 0.4 0.26">
+              <a-box width="1.2" height="1.4" depth="0.02" color="#dfe6e9" material="metalness:0.9; roughness:0.1"></a-box>
+          </a-entity>
+
+          <a-entity position="0.5 0.3 0.2">
+              <a-box width="0.05" height="0.15" depth="0.05" position="0 0.2 0" color="#2f3542"></a-box>
+              <a-box width="0.05" height="0.15" depth="0.05" position="0.5 0.2 0" color="#2f3542"></a-box>
+          </a-entity>
+      </a-entity>
+
+      <a-entity id="painting-fancy" position="-7.85 2.5 -2.5" rotation="0 90 0">
+          
+          <a-box width="2.7" height="2.0" depth="0.15" color="#3e2723">
+              
+              <a-box width="2.5" height="1.8" depth="0.05" position="0 0 0.06" color="#f5f5f5">
+                  
+                  <a-entity id="abstract-art" position="0 0 0.03">
+                      <a-plane width="2.3" height="1.6" color="#74b9ff"></a-plane>
+                      
+                      <a-box width="1.2" height="0.8" depth="0.01" position="-0.5 -0.4 0.01" rotation="0 0 45" color="#26de81"></a-box>
+                      <a-box width="1.5" height="1.0" depth="0.01" position="0.4 -0.5 0.02" rotation="0 0 -30" color="#2ecc71"></a-box>
+                      
+                      <a-box width="2.3" height="0.4" depth="0.01" position="0 -0.6 0.03" color="#2980b9"></a-box>
+                      
+                      <a-circle radius="0.2" position="0.6 0.4 0.01" color="#f1c40f"></a-circle>
+                  </a-entity>
+
+              </a-box>
+          </a-box>
+          
+          <a-entity position="0 1.2 0.3" rotation="-45 0 0">
+              <a-cylinder radius="0.04" height="0.15" color="#2f3542"></a-cylinder>
+              <a-sphere radius="0.03" position="0 -0.08 0" color="#ffffeb" material="emissive: #ffffeb; emissiveIntensity: 1"></a-sphere>
+          </a-entity>
+
+      </a-entity>
+
+      <a-entity position="0 0.25 -15.4">
+          
+          <a-box width="3.5" height="0.5" depth="0.8" color="#3d3d3d">
+              <a-box width="1.1" height="0.4" depth="0.05" position="-1.1 0 0.41" color="#2f3542"></a-box>
+              <a-box width="1.1" height="0.4" depth="0.05" position="1.1 0 0.41" color="#2f3542"></a-box>
+          </a-box>
+
+          <a-entity position="0 1.1 0">
+              <a-box width="0.6" height="0.1" depth="0.3" position="0 -0.8 0" color="#1e272e"></a-box>
+              <a-box width="2.8" height="1.6" depth="0.1" color="#1e272e">
+                  <a-plane width="2.7" height="1.5" position="0 0 0.06" 
+                           color="#000000" 
+                           material="metalness:0.9; roughness:0.1; envMapIntensity:1.0">
+                  </a-plane>
+                  <a-sphere radius="0.015" position="1.3 -0.75 0.07" color="red"></a-sphere>
+              </a-box>
+          </a-entity>
+
+          <a-box width="1.8" height="0.15" depth="0.2" position="0 0.35 0.3" color="#1e272e"></a-box>
+          
+          <a-box width="0.3" height="0.8" depth="0.3" position="-1.5 0.6 0.2" color="#1e272e">
+              <a-circle radius="0.1" position="0 0.2 0.16" color="#2f3542"></a-circle>
+              <a-circle radius="0.1" position="0 -0.2 0.16" color="#2f3542"></a-circle>
+          </a-box>
+
+          <a-box width="0.3" height="0.8" depth="0.3" position="1.5 0.6 0.2" color="#1e272e">
+              <a-circle radius="0.1" position="0 0.2 0.16" color="#2f3542"></a-circle>
+              <a-circle radius="0.1" position="0 -0.2 0.16" color="#2f3542"></a-circle>
+          </a-box>
+
+          <a-cylinder position="-1.1 0.4 0.1" radius="0.15" height="0.3" color="#57606f">
+              <a-sphere radius="0.15" position="0 0.2 0" color="#26de81"></a-sphere> </a-cylinder>
+
+      </a-entity>
+
+<a-entity id="magazine-rack" position="-2.2 0 -15.2" rotation="0 15 0">
+          
+          <a-cylinder radius="0.015" height="1" position="-0.25 0.5 0" color="#2f3542"></a-cylinder>
+          <a-cylinder radius="0.015" height="1" position="0.25 0.5 0" color="#2f3542"></a-cylinder>
+          
+          <a-entity position="0 0.7 0" rotation="20 0 0">
+              <a-box width="0.6" height="0.5" depth="0.02" color="#57606f" material="roughness: 1"></a-box>
+              <a-box width="0.6" height="0.6" depth="0.02" position="0 0.05 -0.15" color="#2f3542"></a-box>
+              <a-box width="0.6" height="0.02" depth="0.15" position="0 -0.25 -0.07" color="#1e272e"></a-box>
+          </a-entity>
+
+          <a-entity id="magazines" position="0 0.75 -0.05" rotation="15 0 0">
+              <a-box width="0.4" height="0.55" depth="0.01" position="-0.05 0 0" color="#2980b9" rotation="0 5 0"></a-box>
+              <a-box width="0.4" height="0.5" depth="0.01" position="0.05 -0.02 0.02" color="#c0392b" rotation="0 -3 0"></a-box>
+              <a-box width="0.38" height="0.48" depth="0.01" position="0 -0.05 0.04" color="#f5f5f5"></a-box>
+          </a-entity>
+
+          <a-box width="0.6" height="0.02" depth="0.4" position="0 0.01 0" color="#2f3542" opacity="0.3"></a-box>
+      </a-entity>
+      
+      <a-entity id="mirror-fancy" position="5 1.5 -15.8" rotation="0 -45 0">
+          <a-box width="1.6" height="2.6" depth="0.12" color="#d4af37" material="metalness:0.8; roughness:0.2"></a-box>
+          
+          <a-box width="1.4" height="2.4" depth="0.05" position="0 0 0.05" 
+                 color="#dfe6e9" 
+                 material="metalness:1.0; roughness:0.05; opacity:0.9">
+              <a-plane width="1.4" height="2.4" position="0 0 0.01" color="white" opacity="0.1" transparent="true"></a-plane>
+          </a-box>
+          
+          <a-box width="0.1" height="0.1" depth="0.2" position="-0.6 -1.3 -0.05" color="#3d3d3d"></a-box>
+          <a-box width="0.1" height="0.1" depth="0.2" position="0.6 -1.3 -0.05" color="#3d3d3d"></a-box>
+      </a-entity>
+
+      <a-entity id="sofa-l" position="0 0.1 -9">
+        
+        <a-entity id="sofa-long-part">
+            <a-box class="clickable" width="5" height="0.45" depth="1.6" color="#f5f5dc" roughness="1"></a-box>
+            <a-entity position="0 0.5 0.65">
+                <a-box width="5" height="1.1" depth="0.3" color="#eaddca"></a-box>
+                <a-cylinder radius="0.15" height="1.1" position="-2.5 0 0" color="#eaddca"></a-cylinder>
+                <a-cylinder radius="0.15" height="1.1" position="2.5 0 0" color="#eaddca"></a-cylinder>
+                <a-cylinder radius="0.15" height="5" rotation="0 0 90" position="0 0.55 0" color="#eaddca"></a-cylinder>
+            </a-entity>
+            <a-box width="1.6" height="0.25" depth="1.45" position="-1.65 0.28 0" color="#fcfaf2" roughness="0.8"></a-box>
+            <a-box width="1.6" height="0.25" depth="1.45" position="0 0.28 0" color="#fcfaf2" roughness="0.8"></a-box>
+            <a-box width="1.6" height="0.25" depth="1.45" position="1.65 0.28 0" color="#fcfaf2" roughness="0.8"></a-box>
+        </a-entity>
+
+        <a-entity id="sofa-corner-part" position="2.1 0 -1.8">
+            <a-box class="clickable" width="1.4" height="0.45" depth="2.8" color="#f5f5dc"></a-box>
+            <a-entity position="0.55 0.15 0">
+                <a-box width="0.3" height="0.8" depth="2.8" color="#eaddca"></a-box>
+                <a-cylinder radius="0.15" height="2.8" rotation="90 0 0" position="0 0.4 0" color="#eaddca"></a-cylinder>
+            </a-entity>
+            <a-box width="1.25" height="0.25" depth="2.65" position="0 0.28 0" color="#fcfaf2"></a-box>
+        </a-entity>
+
+        <a-entity id="cushions">
+            <a-box width="0.6" height="0.6" depth="0.2" position="-1.8 0.75 0.45" rotation="5 15 0" color="#778ca3"></a-box>
+            <a-box width="0.6" height="0.6" depth="0.2" position="0 0.75 0.45" rotation="5 -10 0" color="#4b778d"></a-box>
+            <a-box width="0.6" height="0.6" depth="0.2" position="2.1 0.75 -1.2" rotation="5 90 0" color="#778ca3"></a-box>
+        </a-entity>
+
+        <a-cylinder radius="0.04" height="0.3" position="-2.3 -0.3 0.6" color="#8e6e46"></a-cylinder>
+        <a-cylinder radius="0.04" height="0.3" position="2.3 -0.3 0.6" color="#8e6e46"></a-cylinder>
+        <a-cylinder radius="0.04" height="0.3" position="2.3 -0.3 -3.0" color="#8e6e46"></a-cylinder>
+        <a-cylinder radius="0.04" height="0.3" position="-2.3 -0.3 -0.6" color="#8e6e46"></a-cylinder>
+
+      </a-entity>
+
+      
+      <a-entity id="coffee-table-group" position="0 0.1 -12">
+          
+          <a-box class="clickable" width="1.6" height="0.08" depth="1" color="#ced6e0" position="0 0.4 0">
+              <a-box width="1.62" height="0.02" depth="1.02" color="#2f3542"></a-box>
+          </a-box>
+
+          <a-entity id="table-legs">
+              <a-cylinder radius="0.02" height="0.4" position="-0.7 0.2 0.4" color="#3d3d3d"></a-cylinder>
+              <a-cylinder radius="0.02" height="0.4" position="0.7 0.2 0.4" color="#3d3d3d"></a-cylinder>
+              <a-cylinder radius="0.02" height="0.4" position="-0.7 0.2 -0.4" color="#3d3d3d"></a-cylinder>
+              <a-cylinder radius="0.02" height="0.4" position="0.7 0.2 -0.4" color="#3d3d3d"></a-cylinder>
+          </a-entity>
+
+          <a-box width="0.3" height="0.02" depth="0.4" position="-0.3 0.45 0.1" rotation="0 15 0" color="#c0392b"></a-box>
+          
+          <a-entity position="0.4 0.48 -0.2">
+              <a-cylinder radius="0.04" height="0.12" color="#ffffff" opacity="0.9"></a-box>
+              <a-torus radius="0.03" tube="0.005" arc="180" rotation="0 0 -90" position="0.04 0 0" color="#ffffff"></a-torus> </a-entity>
+
+          <a-box width="1.4" height="0.04" depth="0.8" position="0 0.15 0" color="#dfe6e9" opacity="0.5"></a-box>
+
+      </a-entity>
+      <a-entity id="dining-set-pro" position="0 0 -2.5">
+          
+          <a-box class="clickable" width="2.5" height="0.08" depth="1.5" position="0 0.75 0" color="#f5f5dc">
+              <a-box width="0.6" height="0.01" depth="1.51" position="0 0.05 0" color="#747d8c"></a-box> 
+          </a-box>
+          
+          <a-cylinder radius="0.03" height="0.75" position="-1.1 0.37 0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="1.1 0.37 0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="-1.1 0.37 -0.6" color="#3d3d3d"></a-cylinder>
+          <a-cylinder radius="0.03" height="0.75" position="1.1 0.37 -0.6" color="#3d3d3d"></a-cylinder>
+
+          <a-entity id="chairs-integrated">
+          
+              <a-entity id="chair-front-left" position="-0.7 0 0.8" rotation="0 0 0">
+                  <a-box width="0.45" height="0.08" depth="0.45" position="0 0.45 0" color="#a52a2a"></a-box>
+                  <a-box width="0.45" height="0.6" depth="0.05" position="0 0.75 0.22" rotation="-5 0 0" color="#a52a2a"></a-box>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 -0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 -0.2" color="#3d3d3d"></a-cylinder>
+              </a-entity>
+
+              <a-entity id="chair-front-right" position="0.7 0 0.8" rotation="0 0 0">
+                  <a-box width="0.45" height="0.08" depth="0.45" position="0 0.45 0" color="#a52a2a"></a-box>
+                  <a-box width="0.45" height="0.6" depth="0.05" position="0 0.75 0.22" rotation="-5 0 0" color="#a52a2a"></a-box>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+              </a-entity>
+
+              <a-entity id="chair-back-left" position="-0.7 0 -0.8" rotation="0 180 0">
+                  <a-box width="0.45" height="0.08" depth="0.45" position="0 0.45 0" color="#a52a2a"></a-box>
+                  <a-box width="0.45" height="0.6" depth="0.05" position="0 0.75 0.22" rotation="-5 0 0" color="#a52a2a"></a-box>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 -0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 -0.2" color="#3d3d3d"></a-cylinder>
+              </a-entity>
+
+              <a-entity id="chair-back-right" position="0.7 0 -0.8" rotation="0 180 0">
+                  <a-box width="0.45" height="0.08" depth="0.45" position="0 0.45 0" color="#a52a2a"></a-box>
+                  <a-box width="0.45" height="0.6" depth="0.05" position="0 0.75 0.22" rotation="-5 0 0" color="#a52a2a"></a-box>
+                  <a-cylinder radius="0.02" height="0.45" position="-0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+                  <a-cylinder radius="0.02" height="0.45" position="0.2 0.22 0.2" color="#3d3d3d"></a-cylinder>
+              </a-entity>
+              
+          </a-entity>
+      </a-entity>
+
+      <a-box class="clickable" color="#2f3542" position="0 0.75 -5.5" width="6" height="1.5" depth="0.5"></a-box>
+
+      <a-entity id="l-kitchen-group" position="6.8 0.45 -4">
+          
+          <a-entity id="main-counter">
+              <a-box class="clickable" width="2" height="0.9" depth="1.2" color="#2f3542">
+                  <a-box width="2.05" height="0.05" depth="1.25" position="0 0.46 0" color="#ced6e0"></a-box>
+                  <a-box width="1.9" height="0.02" depth="0.02" position="0 0.1 0.61" color="#1e272e"></a-box>
+                  <a-box width="1.9" height="0.02" depth="0.02" position="0 -0.2 0.61" color="#1e272e"></a-box>
+              </a-box>
+          </a-entity>
+
+          <a-entity id="side-counter" position="0.5 0 1.8">
+              <a-box class="clickable" width="1" height="0.9" depth="4.4" color="#2f3542">
+                  <a-box width="1.05" height="0.05" depth="4.45" position="0 0.46 0" color="#ced6e0"></a-box>
+                  <a-box width="0.6" height="0.02" depth="0.8" position="0 0.48 -0.5" color="#747d8c"></a-box>
+              </a-box>
+          </a-entity>
+
+          <a-entity id="fridge-fancy" position="0.5 0.75 4.5" rotation="0 270 0">
+          <a-box class="clickable" width="1.2" height="2.4" depth="1.1" color="#c0392b" material="roughness: 0.4; metalness: 0.3"></a-box>
+          
+          <a-box width="1.18" height="0.8" depth="0.05" position="0 0.75 0.56" color="#a0281e"></a-box>
+          
+          <a-box width="1.18" height="1.45" depth="0.05" position="0 -0.4 0.56" color="#a0281e"></a-box>
+          
+          <a-box width="0.04" height="0.4" depth="0.1" position="0.45 0.75 0.62" color="#1e272e" material="metalness: 0.8; roughness: 0.2"></a-box>
+          <a-box width="0.04" height="0.8" depth="0.1" position="0.45 -0.4 0.62" color="#1e272e" material="metalness: 0.8; roughness: 0.2"></a-box>
+          
+          <a-box width="0.25" height="0.35" depth="0.02" position="-0.2 0.1 0.61" color="#2f3542" opacity="0.9">
+              <a-sphere radius="0.02" position="0 0.08 0.02" color="#00d2d3" material="emissive: #00d2d3; emissiveIntensity: 2"></a-sphere>
+              <a-plane width="0.15" height="0.05" position="0 -0.05 0.025" color="#00d2d3" opacity="0.5"></a-plane>
+          </a-box>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <div id="game-ui" class="game-ui">
+    <div class="top-bar">
+      <div class="score-box">HAYAT PUANI: <span id="score-val">50</span></div>
+      <div class="score-box" id="timer-ui">⏱️ 0s</div>
     </div>
-
-    <!-- AR Sahnesi -->
-    <a-scene id="ar-scene" embedded
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-        vr-mode-ui="enabled: false" renderer="logarithmicDepthBuffer: true; precision: medium;" style="display: none;">
-
-        <!-- Kamera -->
-        <a-entity camera look-controls-enabled="false"></a-entity>
-
-        <!-- Yangın (kırmızı-turuncu parlak küre) -->
-        <a-sphere id="fire" position="0 0.2 -2" radius="0.3" color="#ff4400"
-            material="emissive: #ff6600; emissiveIntensity: 1.5; metalness: 0; roughness: 0.2;"
-            animation="property: material.emissive; from: #ff4400; to: #ffaa00; dir: alternate; dur: 500; loop: true"
-            animation__scale="property: scale; from: 0.8 0.8 0.8; to: 1.2 1.2 1.2; dir: alternate; dur: 800; loop: true">
-        </a-sphere>
-
-        <!-- Masa -->
-        <a-box id="desk" position="0 0.4 -2" width="1.5" height="0.05" depth="0.8" color="#8b7355"
-            material="roughness: 0.8">
-        </a-box>
-
-        <!-- ABC Söndürücü (Kırmızı) -->
-        <a-cylinder id="abc-extinguisher" position="-1 0.25 -1.5" radius="0.08" height="0.5" color="#ff0000"
-            material="metalness: 0.6; roughness: 0.4">
-        </a-cylinder>
-
-        <!-- CO2 Söndürücü (Siyah) -->
-        <a-cylinder id="co2-extinguisher" position="0 0.25 -1.5" radius="0.08" height="0.5" color="#111111"
-            material="metalness: 0.7; roughness: 0.3">
-        </a-cylinder>
-
-        <!-- Su Dolabı -->
-        <a-box id="water-cabinet" position="1 0.5 -2" width="0.4" height="0.6" depth="0.2" color="#cc0000"
-            material="roughness: 0.5">
-        </a-box>
-
-        <!-- Zemin göstergesi -->
-        <a-circle id="ground-indicator" position="0 0 -2" radius="1.5" rotation="-90 0 0" color="#333" opacity="0.3">
-        </a-circle>
-
-        <!-- Işıklar -->
-        <a-light type="ambient" color="#fff" intensity="0.5"></a-light>
-        <a-light type="point" position="0 2 -2" intensity="1" color="#fff"></a-light>
-        <a-light type="point" position="0 0.2 -2" intensity="2" color="#ff4400"></a-light>
-    </a-scene>
-
-    <!-- AR UI Katmanı -->
-    <div id="ar-ui" class="ar-ui">
-        <!-- Üst Çubuk -->
-        <div class="top-bar">
-            <div class="info-box">
-                <span id="instruction-text">Ekrana dokunarak yangını yerleştirin</span>
-            </div>
-            <div class="timer-box" id="timer" style="display: none;">
-                ⏱️ 0.0s
-            </div>
-        </div>
-
-        <!-- Dokunma göstergesi -->
-        <div class="tap-indicator" id="tap-indicator">
-            👆 Ekrana dokunun
-        </div>
-
-        <!-- Durum Mesajı -->
-        <div class="status-message" id="status-message">
-            Yangın yerleştiriliyor...
-        </div>
-
-        <!-- Kontrol Butonları -->
-        <div class="bottom-controls">
-            <button class="control-btn alarm" id="alarm-btn" onclick="activateAlarm()" style="display:none;">
-                🚨 ALARM BAS
-            </button>
-            <button class="control-btn abc" onclick="selectExtinguisher('ABC')" style="display:none;" id="abc-btn">
-                ABC Toz
-            </button>
-            <button class="control-btn co2" onclick="selectExtinguisher('CO2')" style="display:none;" id="co2-btn">
-                CO2
-            </button>
-            <button class="control-btn water" onclick="selectExtinguisher('WATER')" style="display:none;"
-                id="water-btn">
-                SU Dolabı
-            </button>
-        </div>
-
-        <!-- Popup Mesaj -->
-        <div class="popup-message" id="popup-message"></div>
+    <div class="bottom-controls">
+      <button class="control-btn low" onclick="triggerEarthquake('low')">HAFİF SARSINTI</button>
+      <button class="control-btn high" onclick="triggerEarthquake('high')">ŞİDDETLİ DEPREM</button>
     </div>
+    <div id="popup-message" class="popup-message"></div>
+  </div>
 
-    <script>
-        // Senaryo değişkenleri
-        let sceneStarted = false;
-        let fireStarted = false;
-        let alarmActivated = false;
-        let selectedExtinguisher = null;
-        let startTime = 0;
-        let fireStage = 'none';
-        let timerInterval = null;
-        let userScore = 0;
-        let decisionLog = [];
+ <script>
+    let lifeScore = 50, activeShaking = false, didCrouch = false, glassBroken = false;
 
-        // AR'yi başlat
-        function startAR() {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('ar-scene').style.display = 'block';
-            document.getElementById('ar-ui').classList.add('active');
+    function startGame() {
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('main-scene').style.display = 'block';
+      document.getElementById('game-ui').classList.add('active');
+    }
 
-            // İlk dokunma ile senaryoyu başlat
-            document.body.addEventListener('click', onFirstTap, { once: true });
+    window.addEventListener('mousedown', function(e) {
+        if (activeShaking && e.button === 2) {
+            const menu = document.getElementById('interact-menu');
+            menu.style.display = 'block';
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
         }
+    });
 
-        // İlk dokunma - Yangını yerleştir ve senaryoyu başlat
-        function onFirstTap() {
-            if (sceneStarted) return;
-            sceneStarted = true;
+    function closeMenu() { document.getElementById('interact-menu').style.display = 'none'; }
 
-            document.getElementById('tap-indicator').style.display = 'none';
-
-            showPopup('🚪 Ofise giriyorsunuz...');
-
-            setTimeout(() => {
-                startFireScenario();
-            }, 2000);
+    function doAction(type) {
+        if(type === 'crouch') {
+            const cam = document.getElementById('player-camera');
+            // Mevcut pozisyonu alıyoruz
+            let currentPos = cam.getAttribute('position');
+            // x ve z aynı kalıyor, sadece y (yükseklik) 0.6'ya iniyor
+            cam.setAttribute('position', {x: currentPos.x, y: 0.6, z: currentPos.z});
+            cam.setAttribute('wasd-controls', 'enabled: false');
+            didCrouch = true;
+            document.getElementById('stand-up-container').style.display = 'block';
         }
+        closeMenu();
+    }
 
-        // Yangın senaryosunu başlat
-        function startFireScenario() {
-            showPopup('⚡ YANGIN BAŞLADI! Elektrik kesildi!');
+    function standUp() {
+        const cam = document.getElementById('player-camera');
+        // Mevcut pozisyonu alıyoruz
+        let currentPos = cam.getAttribute('position');
+        // x ve z aynı kalıyor, sadece y tekrar 1.6'ya (göz hizası) çıkıyor
+        cam.setAttribute('position', {x: currentPos.x, y: 1.6, z: currentPos.z});
+        cam.setAttribute('wasd-controls', 'enabled: true');
+        document.getElementById('stand-up-container').style.display = 'none';
+    }
+    
+    function triggerEarthquake(sev) {
+      if (activeShaking) return;
+      activeShaking = true; 
+      didCrouch = false; 
+      glassBroken = false;
+      
+      document.getElementById('audio-quake').components.sound.playSound();
 
-            fireStarted = true;
-            fireStage = 'beginning';
-            startTime = Date.now();
+      // Sallanacak eşyaların listesi
+      const physicalObjects = ['#dining-set-pro', '#sofa-l', '#fridge-fancy', '#magazine-rack'];
+      
+      // Eşyalara "BAŞLA" sinyali gönder
+      physicalObjects.forEach(id => {
+          const el = document.querySelector(id);
+          if (el) el.emit('start-shake');
+      });
 
-            document.getElementById('timer').style.display = 'block';
-            document.getElementById('alarm-btn').style.display = 'block';
-            document.getElementById('status-message').textContent = '🔥 YANGIN VAR! Alarm basın!';
-            document.getElementById('instruction-text').textContent = 'HEMEN alarm basın!';
+      let dur = 12;
+      let power = (sev === 'high') ? 0.45 : 0.15;
+      showPopup("🚨 DEPREM BAŞLADI!", false);
 
-            startTimer();
+      const target = document.getElementById('shaky-container');
+      let shakeTick = setInterval(() => {
+        if (!activeShaking) { 
+            clearInterval(shakeTick); 
+            target.setAttribute('position', '0 0 0'); 
+            return; 
+        }
+        // Zemin sarsıntısı
+        target.setAttribute('position', `${(Math.random()-0.5)*power} ${(Math.random()-0.5)*(power*0.3)} ${(Math.random()-0.5)*power}`);
+        checkDangers();
+      }, 50);
 
-            decisionLog.push({
-                time: 0,
-                action: 'fire_started',
-                description: 'Elektrik yangını başladı!'
+      let remaining = dur;
+      let clock = setInterval(() => {
+        remaining--; 
+        document.getElementById('timer-ui').textContent = `⏱️ ${remaining}s`;
+        if (remaining <= 0) { 
+            clearInterval(clock); 
+            activeShaking = false;
+            document.getElementById('audio-quake').components.sound.stopSound();
+            document.getElementById('danger-popup').style.display = 'none';
+            
+            // Eşyalara "DUR" sinyali gönder
+            physicalObjects.forEach(id => {
+                const el = document.querySelector(id);
+                if (el) el.emit('stop-shake');
             });
+            
+            evaluateSafety(); 
         }
-
-        // Zamanlayıcı
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                document.getElementById('timer').textContent = `⏱️ ${elapsed}s`;
-
-                // Yangın aşamaları
-                if (elapsed > 20 && fireStage === 'beginning') {
-                    fireStage = 'developed';
-                    showPopup('🔥 DİKKAT! Yangın büyüdü!');
-                }
-
-                if (elapsed > 40 && fireStage !== 'extinguished') {
-                    endScenario('failed_uncontrolled_fire');
-                }
-            }, 100);
+      }, 1000);
+    }
+      let remaining = dur;
+      let clock = setInterval(() => {
+        remaining--; document.getElementById('timer-ui').textContent = `⏱️ ${remaining}s`;
+        if (remaining <= 0) { 
+            clearInterval(clock); activeShaking = false;
+            document.getElementById('audio-quake').components.sound.stopSound();
+            document.getElementById('danger-popup').style.display = 'none';
+            evaluateSafety(); 
         }
+      }, 1000);
+    
+      
 
-        // Alarm aktivasyonu
-        function activateAlarm() {
-            if (!fireStarted || alarmActivated) return;
 
-            const responseTime = ((Date.now() - startTime) / 1000).toFixed(1);
-            alarmActivated = true;
+    function checkDangers() {
+        const rig = document.querySelector('#rig');
+        const cam = document.querySelector('#player-camera');
+        const pX = rig.getAttribute('position').x + cam.getAttribute('position').x;
+        const pZ = rig.getAttribute('position').z + cam.getAttribute('position').z;
+        const popup = document.getElementById('danger-popup');
+        const pText = document.getElementById('danger-text');
 
-            if (responseTime < 5) {
-                userScore += 30;
-                showPopup('⭐ Mükemmel! +30 puan');
-            } else {
-                userScore += 10;
-                showPopup('⚠️ Geç kaldınız! +10 puan');
+        let isDanger = false;
+
+        // YENİ TEHLİKE BÖLGELERİ:
+        // 1. Ayna (45 derece döndüğü için alanı genişledi)
+        if (getDist(pX, pZ, 5, -15.8) < 2.0) {
+            pText.innerHTML = "! DİKKAT !<br>AYNA DEVRİLEBİLİR VEYA KIRILABİLİR!";
+            isDanger = true;
+        }
+        // 2. Dergilik (1 metre yakındayken tehlikeli)
+        else if (getDist(pX, pZ, -2.8, -15.2) < 1.5) {
+            pText.innerHTML = "! DİKKAT !<br>DERGİLİK DEVRİLEBİLİR!";
+            isDanger = true;
+        }
+        // 3. Pencereler (Bütün cam bölgeleri)
+        else if (pX < -6.5 || pX > 6.5) {
+            pText.innerHTML = "! DİKKAT !<br>CAM PATLAMA RİSKİ!";
+            isDanger = true;
+            if (!glassBroken && Math.random() < 0.05) { 
+                document.getElementById('audio-glass').components.sound.playSound(); 
+                glassBroken = true; 
             }
-
-            document.getElementById('alarm-btn').textContent = 'ALARM AKTİF! 🚨';
-            document.getElementById('alarm-btn').disabled = true;
-
-            // Söndürücü butonlarını göster
-            document.getElementById('abc-btn').style.display = 'block';
-            document.getElementById('co2-btn').style.display = 'block';
-            document.getElementById('water-btn').style.display = 'block';
-
-            document.getElementById('status-message').textContent = '🧯 Yangın söndürücü seçin!';
-            document.getElementById('instruction-text').textContent = 'Doğru söndürücüyü seçin!';
-
-            decisionLog.push({
-                time: responseTime,
-                action: 'alarm_activated',
-                description: `Alarm ${responseTime}s'de basıldı`
-            });
         }
 
-        // Söndürücü seçimi
-        function selectExtinguisher(type) {
-            if (!alarmActivated || selectedExtinguisher) return;
-
-            selectedExtinguisher = type;
-
-            if (type === 'ABC') {
-                userScore += 40;
-                showPopup('✅ Doğru! ABC Toz elektrik için uygun! +40 puan');
-                setTimeout(() => extinguishFire(), 2000);
-            } else if (type === 'CO2') {
-                userScore += 35;
-                showPopup('✅ Doğru! CO2 uygun! +35 puan');
-                setTimeout(() => extinguishFire(), 2000);
-            } else if (type === 'WATER') {
-                userScore -= 50;
-                showPopup('❌ YANLIŞ! ELEKTRİK ÇARPMA RİSKİ! -50 puan');
-                setTimeout(() => endScenario('failed_wrong_extinguisher'), 3000);
-            }
-
-            decisionLog.push({
-                time: ((Date.now() - startTime) / 1000).toFixed(1),
-                action: 'extinguisher_selected',
-                description: `${type} seçildi`
-            });
-        }
-
-        // Yangını söndür
-        function extinguishFire() {
-            if (fireStage === 'developed') {
-                showPopup('⚠️ Çok geç! Yangın büyüdü!');
-                setTimeout(() => endScenario('failed_late_intervention'), 2000);
-                return;
-            }
-
-            showPopup('🧯 Yangın söndürülüyor...');
-
-            setTimeout(() => {
-                fireStage = 'extinguished';
-                userScore += 50;
-                showPopup('✅ Yangın söndürüldü!');
-                setTimeout(() => endScenario('success'), 2000);
-            }, 3000);
-        }
-
-        // Senaryo sonu
-        function endScenario(result) {
-            clearInterval(timerInterval);
-
-            const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-
-            let message = '';
-
-            switch (result) {
-                case 'success':
-                    message = `🎉 BAŞARILI!\n\nYangın kontrol altına alındı!\n\nPuan: ${userScore}/200\nSüre: ${totalTime}s`;
-                    break;
-                case 'failed_wrong_extinguisher':
-                    message = `❌ BAŞARISIZ\n\nYanlış ekipman!\n\nPuan: ${userScore}/200\nSüre: ${totalTime}s`;
-                    break;
-                case 'failed_late_intervention':
-                    message = `❌ BAŞARISIZ\n\nGeç müdahale!\n\nPuan: ${userScore}/200\nSüre: ${totalTime}s`;
-                    break;
-                case 'failed_uncontrolled_fire':
-                    message = `❌ BAŞARISIZ\n\nYangın kontrolden çıktı!\n\nPuan: ${userScore}/200\nSüre: ${totalTime}s`;
-                    break;
-            }
-
-            showPopup(message + '\n\n📋 Karar Geçmişi:\n' + decisionLog.map(d => `[${d.time}s] ${d.description}`).join('\n'), true);
-        }
-
-        // Popup göster
-        function showPopup(message, permanent = false) {
-            const popup = document.getElementById('popup-message');
-            popup.textContent = message;
+        if (isDanger) {
+            lifeScore = Math.max(0, lifeScore - 0.4);
             popup.style.display = 'block';
-            popup.style.whiteSpace = 'pre-line';
+            document.getElementById('score-val').textContent = Math.floor(lifeScore);
+        } else { popup.style.display = 'none'; }
+    }
 
-            if (!permanent) {
-                setTimeout(() => {
-                    popup.style.display = 'none';
-                }, 4000);
-            }
-        }
-    </script>
+    function getDist(x1, z1, x2, z2) { return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(z1 - z2, 2)); }
+
+    function evaluateSafety() {
+      const rig = document.querySelector('#rig');
+      const cam = document.querySelector('#player-camera');
+      const pX = rig.getAttribute('position').x + cam.getAttribute('position').x;
+      const pZ = rig.getAttribute('position').z + cam.getAttribute('position').z;
+
+      let delta = 0;
+      let txt = "";
+
+      // GÜVENLİ NESNELER (Yeni konumlar)
+      const distToTable = getDist(pX, pZ, 0, -2.5);
+      const distToSofa = getDist(pX, pZ, 0, -9);
+      const distToKitchen = getDist(pX, pZ, 6.8, -4);
+
+      if (distToTable < 2.0 || distToSofa < 2.5 || distToKitchen < 2.0) {
+          delta = didCrouch ? 50 : 20;
+          txt = "✅ BAŞARILI: Güvenli bir nesnenin yanındasınız!";
+      } else if (pX < -6 || pX > 6 || pZ < -15) {
+          delta = -40;
+          txt = "❌ KRİTİK HATA: Camlara veya devrilebilir eşyalara çok yakındınız!";
+      } else {
+          delta = -10;
+          txt = "🚶 BOŞ ALAN: Sarsıntı sırasında korumasız kaldınız.";
+      }
+
+      lifeScore = Math.max(0, Math.min(100, lifeScore + delta));
+      document.getElementById('score-val').textContent = Math.floor(lifeScore);
+      showPopup(`DEPREM SONA ERDİ\nSkor: ${Math.floor(lifeScore)}\n\n${txt}`, true);
+    }
+
+    function showPopup(m, isFinal) {
+      const el = document.getElementById('popup-message');
+      el.innerText = m; el.style.display = 'block';
+      if (!isFinal) setTimeout(() => { el.style.display = 'none'; }, 2000);
+    }
+  </script>
 </body>
-
 </html>

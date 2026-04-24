@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Gaz Sızıntısı & Havalandırma Simülatörü</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #000; }
+    
+    /* Üst Panel - Gaz Bilgileri */
+    #ui-container {
+      position: absolute; top: 20px; left: 20px;
+      color: white; background: rgba(0,0,0,0.85);
+      padding: 20px; border-radius: 15px; border: 2px solid #4caf50;
+      pointer-events: none; z-index: 100; min-width: 280px;
+      display: none; /* Girişten sonra açılacak */
+    }
+
+    #gas-bar-container { width: 100%; height: 15px; background: #333; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+    #gas-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #4caf50, #ffeb3b, #f44336); transition: width 0.3s; }
+
+    /* Tehlike Overlay */
+    #danger-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255, 0, 0, 0.4); display: none; pointer-events: none; z-index: 50;
+    }
+
+    /* Giriş Paneli (Mutfak Senaryosu) */
+    #controls-intro {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(26, 26, 46, 0.98); border: 4px solid #4caf50;
+      border-radius: 20px; padding: 40px; color: white; z-index: 200;
+      text-align: center; max-width: 650px; width: 90%; box-shadow: 0 0 50px rgba(0,0,0,0.9);
+    }
+
+    .key-hint { font-weight: bold; color: #ffaa00; font-size: 1.1em; }
+    
+    button {
+      background: linear-gradient(145deg, #4caf50, #45a049); color: white;
+      border: none; border-radius: 10px; padding: 15px 40px;
+      font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.3s;
+    }
+    button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(76, 175, 80, 0.5); }
+
+    input { padding: 12px; border-radius: 8px; border: 2px solid #4caf50; width: 40%; background: white; color: black; font-size: 16px; }
+  </style>
+</head>
+
+<body>
+  <div id="danger-overlay"></div>
+
+  <div id="ui-container">
+    <h2 style="margin:0; color: #4caf50;">☣️ Gaz Seviyesi</h2>
+    <div id="gas-bar-container"><div id="gas-bar-fill"></div></div>
+    <p>Konsantrasyon: <span id="gas-level">100</span>%</p>
+    <hr style="border: 0.5px solid #444;">
+    <div id="vent-status">Durum: <span style="color: #ffaa00; font-weight: bold;">SIZINTI VAR!</span></div>
+    <p style="font-size: 0.8em; color: #ffaa00; margin-top: 10px;">🖱️ Yaklaş ve Sol Tıkla: Ocağı Kapat / Kapı-Pencere Aç</p>
+  </div>
+
+  <div id="controls-intro">
+    <h1 style="color: #4caf50;">☣️ MUTFAK GAZ SIZINTISI</h1>
+    <p style="color: #ffaa00; font-style: italic; margin-bottom: 25px;">
+        Mutfaktaki ocak açık unutuldu ve sızıntı başladı! Havalandırmayı yöneterek ortamı temizle.
+    </p>
+
+    <div style="display: flex; justify-content: space-around; margin-bottom: 30px; gap: 15px;">
+      <div><div style="font-size: 30px;">⌨️</div><div class="key-hint">W A S D</div><div>Yürü</div></div>
+      <div><div style="font-size: 30px;">🖱️</div><div class="key-hint">MOUSE</div><div>Bak</div></div>
+      <div><div style="font-size: 30px;">🖱️</div><div class="key-hint">SOL TIK</div><div>Etkileşim</div></div>
+    </div>
+
+    <div style="margin-bottom: 25px;">
+      <input type="text" id="userName" placeholder="Adınız">
+      <input type="text" id="userSurname" placeholder="Soyadınız" style="margin-left: 5px;">
+    </div>
+
+    <button onclick="validateAndStart()">SİMÜLASYONU BAŞLAT</button>
+  </div>
+
+  <a-scene id="main-scene" style="display:none;" cursor="rayOrigin: mouse;" raycaster="objects: .interactable">
+    <a-assets>
+      <img id="floor-wood" src="https://raw.githubusercontent.com/aframevr/sample-assets/master/assets/images/wood/hardwood2_diffuse.jpg">
+    </a-assets>
+
+    <a-entity id="rig" position="0 0 8">
+      <a-entity id="player-camera" camera look-controls wasd-controls="acceleration:75" position="0 1.6 0"></a-entity>
+    </a-entity>
+
+    <a-light type="ambient" intensity="1.2"></a-light>
+    <a-light type="directional" intensity="0.6" position="5 10 5"></a-light>
+
+    <a-plane src="#floor-wood" rotation="-90 0 0" width="25" height="25" repeat="10 10"></a-plane>
+    <a-box position="0 4 -12" width="25" height="8" depth="0.1" color="#ffffff"></a-box>
+    <a-box position="-12 4 0" width="0.1" height="8" depth="25" color="#ffffff" rotation="0 0 0"></a-box>
+
+    <a-box id="long-counter" position="-6 0.6 -11" width="12" height="1.2" depth="1.8" color="#8B4513"></a-box>
+    <a-box id="fridge" position="2 1.9 -2" width="1.8" height="3.8" depth="1.8" color="#dddddd"></a-box>
+    <a-box id="table" position="5 1 -2" width="4" height="0.1" depth="2.5" color="#8B4513"></a-box>
+
+    <a-box id="stove" class="interactable" position="-4 1.3 -10.5" width="1.2" height="0.2" depth="1" color="#333" onclick="interact('stove')"></a-box>
+    <a-box id="window" class="interactable" position="-11.9 3 0" width="0.1" height="2.5" depth="4" color="#add8e6" opacity="0.6" onclick="interact('window')"></a-box>
+    <a-box id="door" class="interactable" position="9 1.75 -11.9" width="2" height="3.5" depth="0.1" color="#5D4037" onclick="interact('door')"></a-box>
+
+    <a-entity id="gas-cloud"></a-entity>
+  </a-scene>
+
+  <script src="gas_sim.js"></script>
+  
+  <script>
+    window.validateAndStart = function() {
+      const name = document.getElementById('userName').value.trim();
+      const surname = document.getElementById('userSurname').value.trim();
+
+      if (!name || !surname) {
+        alert("Lütfen Ad ve Soyad alanlarını doldurunuz!");
+        return;
+      }
+
+      document.getElementById('controls-intro').style.display = 'none';
+      document.getElementById('ui-container').style.display = 'block';
+      document.getElementById('main-scene').style.display = 'block';
+      
+      // gas_sim.js içindeki başlatma fonksiyonu
+      if(window.initGasSim) window.initGasSim();
+    };
+  </script>
+</body>
+</html>

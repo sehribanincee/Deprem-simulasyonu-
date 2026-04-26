@@ -1,179 +1,161 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+let gasLevel = 0;
+let activeVentPower = 0;
+let lastSelectedId = null;
+const particles = [];
 
-// 1. SAHNE VE AYDINLIK ORTAM KURULUMU
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf0f0f0); // Aydınlık beyaz/gri arka plan
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+// --- YENİ DEĞİŞKENLER ---
+let countdown = 10;
+let isGameOver = false;
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); // Güçlü genel aydınlatma
-scene.add(ambientLight);
-const pointLight = new THREE.PointLight(0xffffff, 1);
-pointLight.position.set(0, 5, 0);
-scene.add(pointLight);
-
-// 2. DETAYLI MUTFAK TASARIMI (Requirement 4)
-const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // Parlak beyaz duvarlar
-const floorMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa }); 
-const furnitureMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Ahşap
-const applianceMat = new THREE.MeshStandardMaterial({ color: 0xdddddd }); // Metalik
-
-// Zemin ve Duvarlar
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(25, 25), floorMat);
-floor.rotation.x = -Math.PI / 2; scene.add(floor);
-
-const createWall = (x, y, z, rotY = 0) => {
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(25, 8), wallMat);
-    wall.position.set(x, y, z); wall.rotation.y = rotY; scene.add(wall);
+const systems = {
+    'stove-unit': { name: 'Ocak (Sızıntı)', active: true, power: 0, isLeak: true },
+    'aspirator-unit': { name: 'Aspiratör', active: false, power: 0.15 },
+    'fan-unit': { name: 'Fan', active: false, power: 0.12 },
+    'window-unit': { name: 'Pencere', active: false, power: 0.20 },
+    'door-unit': { name: 'Dış Kapı', active: false, power: 0.12 }
 };
-createWall(0, 4, -12); // Arka Duvar
-createWall(-12, 4, 0, Math.PI / 2); // Sol Duvar
 
-// Uzun Mutfak Dolabı
-const longCounter = new THREE.Mesh(new THREE.BoxGeometry(12, 1.2, 1.8), furnitureMat);
-longCounter.position.set(-6, 0.6, -11); scene.add(longCounter);
+window.openMenu = (event, id) => {
+    lastSelectedId = id;
+    const menuTitle = document.getElementById('menu-title');
+    if (menuTitle) menuTitle.innerText = systems[id].name;
+    const menu = document.getElementById('interact-menu');
+    menu.style.display = 'block';
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+};
 
-// Buzdolabı ve Masaya Bitişik Düzen
-const fridge = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3.8, 1.8), applianceMat);
-fridge.position.set(2, 1.9, -2); scene.add(fridge);
+window.handleMenuAction = (action) => {
+    const state = (action === 'open');
+    if (lastSelectedId) toggleSystem(lastSelectedId, state);
+    window.closeMenu();
+};
 
-const table = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 2.5), furnitureMat);
-table.position.set(5, 1, -2); scene.add(table);
+window.closeMenu = () => { 
+    const menu = document.getElementById('interact-menu');
+    if (menu) menu.style.display = 'none'; 
+};
 
-// Kapı ve Pencere (İnteraktif Objeler)
-const door = new THREE.Mesh(new THREE.BoxGeometry(2, 3.5, 0.1), new THREE.MeshStandardMaterial({color: 0x5D4037}));
-door.position.set(9, 1.75, -11.9); scene.add(door);
+window.toggleSystem = (id, state) => {
+    if (!systems[id]) return;
+    systems[id].active = state;
+    const el = document.getElementById(id);
 
-const windowObj = new THREE.Mesh(new THREE.BoxGeometry(4, 2.5, 0.1), new THREE.MeshStandardMaterial({color: 0xadd8e6, transparent: true, opacity: 0.6}));
-windowObj.position.set(-11.9, 3, 0); windowObj.rotation.y = Math.PI / 2; scene.add(windowObj);
+    if (id === 'stove-unit') {
+        el.setAttribute('color', state ? '#ff4500' : '#111111');
+    } else if (id === 'aspirator-unit') {
+        el.setAttribute('color', state ? '#2ecc71' : '#94a3b8');
+    } else if (id === 'window-unit') {
+        const glass = document.getElementById('window-glass');
+        const glassGroup = document.getElementById('window-glass-group');
+        if (glass) glass.setAttribute('visible', !state);
+        if (glassGroup) glassGroup.object3D.rotation.y = state ? Math.PI / 2 : 0;
+    } 
+    else if (id === 'door-unit') {
+        el.object3D.rotation.y = state ? Math.PI / 2 : 0;
+    }
 
-// 3. ETKİLEŞİMLİ SİSTEMLER VE RAYCASTER
-let gasLevel = 100;
-let systems = { stoveOn: true, windowOpen: false, doorOpen: false, aspiratorOn: false };
-const raycaster = new THREE.Raycaster();
+    activeVentPower = Object.values(systems)
+        .filter(s => s.active && !s.isLeak)
+        .reduce((acc, curr) => acc + curr.power, 0);
 
-// OCAK VE GAZ PARTİKÜLLERİ
-const stove = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 1), new THREE.MeshStandardMaterial({color: 0x333333}));
-stove.position.set(-4, 1.3, -10.5); scene.add(stove);
+    const ventStatus = document.getElementById('vent-status');
+    if (ventStatus) ventStatus.innerText = activeVentPower > 0 ? "🌀 Tahliye: Aktif" : "🌀 Tahliye: Kapalı";
+};
 
-const particleCount = 2000;
-const geometry = new THREE.BufferGeometry();
-const posArr = new Float32Array(particleCount * 3);
-const vels = [];
-for (let i = 0; i < particleCount; i++) {
-    posArr[i*3]=-4; posArr[i*3+1]=1.4; posArr[i*3+2]=-10.5;
-    vels.push(new THREE.Vector3((Math.random()-0.5)*0.03, Math.random()*0.04, (Math.random()-0.5)*0.03));
-}
-geometry.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-const gasCloud = new THREE.Points(geometry, new THREE.PointsMaterial({color: 0x00ff00, size: 0.05, transparent: true, opacity: 0.4}));
-scene.add(gasCloud);
+function update() {
+    // Eğer oyun bittiyse (bayılma), simülasyonu durdur
+    if (isGameOver) return;
 
-// 4. HAREKET VE TIKLAMA KONTROLÜ (FPS)
-const controls = new PointerLockControls(camera, document.body);
+    if (systems['fan-unit'].active) {
+        const blades = document.getElementById('fan-blades');
+        if (blades) blades.object3D.rotation.z += 0.2;
+    }
 
-// Aspiratör Modeli (Assets'ten)
-const loader = new GLTFLoader();
-let aspiratorMesh;
-loader.load('../assets/3D/fire_hose_cabinet.glb', (gltf) => {
-    aspiratorMesh = gltf.scene;
-    aspiratorMesh.position.set(-4, 3, -11);
-    scene.add(aspiratorMesh);
-});
+    if (systems['stove-unit'].active) gasLevel += 0.25;
+    if (activeVentPower > 0) gasLevel -= activeVentPower;
+    
+    gasLevel = Math.max(0, Math.min(100, gasLevel));
 
-document.addEventListener('click', () => {
-    if (!controls.isLocked) {
-        controls.lock();
-    } else {
-        // ETKİLEŞİM MANTIĞI: Tıklanan objeyi algıla
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        const intersects = raycaster.intersectObjects(scene.children, true);
+    // UI Elementleri
+    const levelDisplay = document.getElementById('gas-level');
+    const barFill = document.getElementById('gas-bar-fill');
+    const dangerOverlay = document.getElementById('danger-overlay');
+    const feedback = document.getElementById('feedback-note'); // index.html'e eklediğin id
+
+    if (levelDisplay) levelDisplay.innerText = Math.floor(gasLevel);
+    if (barFill) barFill.style.width = gasLevel + '%';
+    
+    // --- FEEDBACK VE TIMER MANTIĞI ---
+    if (feedback) {
+        if (gasLevel >= 100) {
+            countdown -= 0.016; // Saniyede yaklaşık 1 azalır (60fps)
+            feedback.innerText = `⚠️ KRİTİK! Bayılmaya: ${Math.ceil(countdown)}s`;
+            feedback.style.color = "#ff4757";
+            if (dangerOverlay) dangerOverlay.style.display = 'block';
+
+            if (countdown <= 0) {
+                isGameOver = true;
+                feedback.innerText = "😵 BAYILDINIZ! Sistem Durduruldu.";
+            }
+        } 
+        else if (gasLevel <= 0 && activeVentPower > 0) {
+            feedback.innerText = "🎉 TEBRİKLER! Ortam Güvenli.";
+            feedback.style.color = "#2ecc71";
+            countdown = 10; 
+            if (dangerOverlay) dangerOverlay.style.display = 'none';
+        }
+        else if (gasLevel > 75) {
+            feedback.innerText = "❗ Tehlikeli Seviye!";
+            feedback.style.color = "#ffa502";
+            if (dangerOverlay) dangerOverlay.style.display = 'block';
+            countdown = 10;
+        }
+        else {
+            feedback.innerText = gasLevel > 0 ? "Gaz Tahliye Ediliyor..." : "Hava Temiz";
+            feedback.style.color = "#f1c40f";
+            if (dangerOverlay) dangerOverlay.style.display = 'none';
+            countdown = 10;
+        }
+    }
+
+    // Partikül Üretimi
+    if (systems['stove-unit'].active && particles.length < 150) {
+        const p = document.createElement('a-sphere');
+        p.setAttribute('radius', '0.04');
+        p.setAttribute('color', '#2ecc71');
+        p.setAttribute('opacity', '0.5');
+        p.setAttribute('position', '-4.5 1.1 -7.2'); 
+        const v = { 
+            x: (Math.random() - 0.5) * 0.015, 
+            y: Math.random() * 0.03, 
+            z: (Math.random() - 0.5) * 0.015 
+        };
+        const container = document.getElementById('gas-container');
+        if (container) {
+            container.appendChild(p);
+            particles.push({ el: p, v: v });
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        let pos = p.el.getAttribute('position');
+        let driftX = activeVentPower > 0 ? 0.015 : 0;
         
-        if (intersects.length > 0) {
-            let obj = intersects[0].object;
-            const dist = intersects[0].distance;
+        p.el.setAttribute('position', { 
+            x: pos.x + p.v.x + driftX, 
+            y: pos.y + p.v.y, 
+            z: pos.z + p.v.z 
+        });
 
-            if (dist < 4) { // Sadece yakındaysak etkileşim kur
-                // Ocağa tıklandıysa
-                if (obj === stove) {
-                    systems.stoveOn = false;
-                    console.log("Ocak kapatıldı.");
-                }
-                // Pencereye tıklandıysa
-                if (obj === windowObj) {
-                    systems.windowOpen = !systems.windowOpen;
-                    windowObj.position.x = systems.windowOpen ? -13 : -11.9;
-                }
-                // Kapıya tıklandıysa
-                if (obj === door) {
-                    systems.doorOpen = !systems.doorOpen;
-                    door.rotation.y = systems.doorOpen ? Math.PI / 2 : 0;
-                }
-                // Aspiratöre (GLB modeline) tıklandıysa
-                if (aspiratorMesh && (obj === aspiratorMesh || aspiratorMesh.attach(obj))) {
-                    systems.aspiratorOn = !systems.aspiratorOn;
-                    console.log("Aspiratör durumu değişti.");
-                }
-            }
+        if (pos.y > 4.8 || Math.abs(pos.x) > 7.9 || Math.abs(pos.z) > 7.9) {
+            if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+            particles.splice(i, 1);
         }
     }
-});
-
-camera.position.set(0, 1.7, 8);
-let moveF = false, moveB = false, moveL = false, moveR = false;
-window.addEventListener('keydown', (e) => {
-    if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true;
-    if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
-});
-window.addEventListener('keyup', (e) => {
-    if(e.code === 'KeyW') moveF = false; if(e.code === 'KeyS') moveB = false;
-    if(e.code === 'KeyA') moveL = false; if(e.code === 'KeyD') moveR = false;
-});
-
-// 5. ANİMASYON DÖNGÜSÜ
-let prevTime = performance.now();
-function animate() {
-    requestAnimationFrame(animate);
-    const time = performance.now();
-    const delta = (time - prevTime) / 1000;
-
-    if (controls.isLocked) {
-        if (moveF) controls.moveForward(6 * delta); if (moveB) controls.moveForward(-6 * delta);
-        if (moveL) controls.moveRight(-6 * delta); if (moveR) controls.moveRight(6 * delta);
-    }
-
-    const pos = gasCloud.geometry.attributes.position.array;
-    let power = (systems.windowOpen * 0.06) + (systems.doorOpen * 0.04) + (systems.aspiratorOn * 0.08);
-    
-    for (let i = 0; i < particleCount; i++) {
-        if (systems.stoveOn) {
-            pos[i*3] += vels[i].x; pos[i*3+1] += vels[i].y; pos[i*3+2] += vels[i].z;
-            if (pos[i*3+1] > 3 || power > 0) { 
-                pos[i*3+1] += power; 
-                if(pos[i*3+1] > 7) { pos[i*3]=-4; pos[i*3+1]=1.4; pos[i*3+2]=-10.5; }
-            }
-        } else {
-            if (pos[i*3+1] > 0.1) pos[i*3+1] -= 0.02; // Çökme efekti
-        }
-    }
-    gasCloud.geometry.attributes.position.needsUpdate = true;
-
-    // UI GÜNCELLEME
-    if (!systems.stoveOn && gasLevel > 0) gasLevel -= 0.6;
-    if (systems.stoveOn && gasLevel < 100) gasLevel += 0.1;
-
-    document.getElementById('gas-level').innerText = Math.floor(gasLevel);
-    document.getElementById('gas-bar-fill').style.width = gasLevel + '%';
-    document.getElementById('vent-status').innerText = `Ocak: ${systems.stoveOn ? 'SIZDIRIYOR' : 'KAPALI'} | Tahliye: ${power > 0 ? 'AKTİF' : 'YOK'}`;
-    
-    document.getElementById('danger-overlay').style.display = (gasLevel > 70) ? 'block' : 'none';
-
-    prevTime = time;
-    renderer.render(scene, camera);
+    requestAnimationFrame(update);
 }
 
-// Global başlatma fonksiyonu
-window.startGasSimulation = () => animate();
+window.toggleSystem('stove-unit', true);
+update();
